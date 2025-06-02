@@ -10,7 +10,8 @@ const nextConfig = {
   trailingSlash: true,
   experimental: {
     serverActions: true
-  }
+  },
+  distDir: '.next'
 }
 
 module.exports = nextConfig 

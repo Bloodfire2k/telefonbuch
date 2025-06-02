@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Contact } from '@/lib/carddav';
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'edge'
+
 // Konfiguration aus Umgebungsvariablen - KEINE Fallback-Werte für Sicherheit
 const CARDDAV_URL = process.env.CARDDAV_URL;
 const ADDRESSBOOK_URL = process.env.ADDRESSBOOK_URL;
