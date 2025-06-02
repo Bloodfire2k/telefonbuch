@@ -62,8 +62,40 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    filterContacts();
-  }, [searchTerm, selectedAddressbook, addressbooks]);
+    if (!loading) {
+      let allContacts: Contact[] = [];
+    
+      // Sammle nur Kontakte aus den gewünschten Adressbüchern
+      const relevantAddressbooks = addressbooks.filter(ab => 
+        ab.displayName.includes('Edeka') || 
+        ab.displayName.includes('Handwerker') || 
+        ab.displayName.includes('Vertreter')
+      );
+      
+      relevantAddressbooks.forEach(ab => {
+        allContacts.push(...ab.contacts);
+      });
+
+      // Filter nach Adressbuch
+      if (selectedAddressbook !== 'all') {
+        allContacts = allContacts.filter(contact => contact.addressbook === selectedAddressbook);
+      }
+
+      // Filter nach Suchbegriff
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        allContacts = allContacts.filter(contact =>
+          contact.fullName.toLowerCase().includes(term) ||
+          (contact.organization && contact.organization.toLowerCase().includes(term)) ||
+          (contact.phone && contact.phone.toLowerCase().includes(term)) ||
+          (contact.email && contact.email.toLowerCase().includes(term)) ||
+          (contact.note && contact.note.toLowerCase().includes(term))
+        );
+      }
+
+      setFilteredContacts(allContacts);
+    }
+  }, [searchTerm, selectedAddressbook, addressbooks, loading]);
 
   const loadContacts = async () => {
     try {
@@ -114,35 +146,6 @@ export default function Home() {
       ab.displayName.includes('Handwerker') || 
       ab.displayName.includes('Vertreter')
     );
-  };
-
-  const filterContacts = () => {
-    let allContacts: Contact[] = [];
-    
-    // Sammle nur Kontakte aus den gewünschten Adressbüchern
-    const relevantAddressbooks = getFilteredAddressbooks();
-    relevantAddressbooks.forEach(ab => {
-      allContacts.push(...ab.contacts);
-    });
-
-    // Filter nach Adressbuch
-    if (selectedAddressbook !== 'all') {
-      allContacts = allContacts.filter(contact => contact.addressbook === selectedAddressbook);
-    }
-
-    // Filter nach Suchbegriff
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      allContacts = allContacts.filter(contact =>
-        contact.fullName.toLowerCase().includes(term) ||
-        (contact.organization && contact.organization.toLowerCase().includes(term)) ||
-        (contact.phone && contact.phone.toLowerCase().includes(term)) ||
-        (contact.email && contact.email.toLowerCase().includes(term)) ||
-        (contact.note && contact.note.toLowerCase().includes(term))
-      );
-    }
-
-    setFilteredContacts(allContacts);
   };
 
   if (loading) {
