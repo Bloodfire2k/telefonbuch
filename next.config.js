@@ -9,8 +9,7 @@ const nextConfig = {
   output: 'standalone',
   trailingSlash: true,
   experimental: {
-    serverActions: true,
-    serverComponentsExternalPackages: ['sharp']
+    serverActions: true
   }
 }
 

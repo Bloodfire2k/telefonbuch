@@ -4,7 +4,7 @@
 
 [build.environment]
   # Node.js Version festlegen
-  NODE_VERSION = "22"
+  NODE_VERSION = "18"
   NEXT_TELEMETRY_DISABLED = "1"
   NEXT_SHARP_PATH = "./node_modules/sharp"
 
