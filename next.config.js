@@ -24,6 +24,14 @@ const nextConfig = {
         ]
       }
     ]
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: '/.netlify/functions/server/api/:path*'
+      }
+    ]
   }
 }
 

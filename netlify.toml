@@ -14,7 +14,7 @@
 
 # Wichtige Redirects für Next.js SPA
 [[headers]]
-  for = "/api/*"
+  for = "/*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"

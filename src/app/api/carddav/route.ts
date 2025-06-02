@@ -3,54 +3,77 @@ import { Contact } from '@/lib/carddav';
 
 export const runtime = 'edge'
 
-// Konfiguration aus Umgebungsvariablen - KEINE Fallback-Werte für Sicherheit
+// Konfiguration aus Umgebungsvariablen
 const CARDDAV_URL = process.env.CARDDAV_URL;
 const ADDRESSBOOK_URL = process.env.ADDRESSBOOK_URL;
 const USERNAME = process.env.CARDDAV_USERNAME;
 const PASSWORD = process.env.CARDDAV_PASSWORD;
 
-export async function GET() {
-  // Debug: Prüfe welche Umgebungsvariablen tatsächlich geladen werden
-  console.log('Debug Umgebungsvariablen:');
-  console.log('CARDDAV_URL:', CARDDAV_URL);
-  console.log('ADDRESSBOOK_URL:', ADDRESSBOOK_URL);
-  console.log('CARDDAV_USERNAME:', USERNAME);
-  console.log('CARDDAV_PASSWORD:', PASSWORD ? 'GESETZT' : 'NICHT GESETZT');
-  
-  // CORS-Header hinzufügen
+export async function GET(request: NextRequest) {
+  // CORS-Header
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': '*'
+    'Access-Control-Allow-Headers': '*',
+    'Content-Type': 'application/json'
   };
-  
-  // Prüfe ob alle notwendigen Umgebungsvariablen gesetzt sind
+
+  // Umgebungsvariablen prüfen
   if (!CARDDAV_URL || !ADDRESSBOOK_URL || !USERNAME || !PASSWORD) {
-    console.error('FEHLER: Nicht alle CardDAV-Umgebungsvariablen sind gesetzt!');
     return new NextResponse(
-      JSON.stringify({ error: 'Server-Konfiguration unvollständig. Umgebungsvariablen fehlen.' }),
-      { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers
+      JSON.stringify({ 
+        error: 'Server-Konfiguration unvollständig',
+        details: {
+          CARDDAV_URL: !!CARDDAV_URL,
+          ADDRESSBOOK_URL: !!ADDRESSBOOK_URL,
+          USERNAME: !!USERNAME,
+          PASSWORD: !!PASSWORD
         }
-      }
+      }),
+      { status: 500, headers }
     );
   }
 
   try {
-    console.log('API: CardDAV-Anfrage gestartet');
-    
     const authString = Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64');
     
-    // Timeout-Controller
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    // Adressbücher abrufen
+    const addressbooksResponse = await fetch(ADDRESSBOOK_URL, {
+      method: 'PROPFIND',
+      headers: {
+        'Authorization': `Basic ${authString}`,
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Depth': '1'
+      },
+      body: `<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+  <D:prop>
+    <D:displayname />
+    <D:resourcetype />
+    <C:supported-address-data />
+  </D:prop>
+</D:propfind>`
+    });
+
+    if (!addressbooksResponse.ok) {
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'CardDAV-Server nicht erreichbar',
+          status: addressbooksResponse.status,
+          statusText: addressbooksResponse.statusText
+        }),
+        { status: addressbooksResponse.status, headers }
+      );
+    }
+
+    const addressbooksXml = await addressbooksResponse.text();
+    const addressbooks = parseAddressbooksXml(addressbooksXml);
     
-    try {
-      // 1. Adressbücher abrufen
-      const addressbooksResponse = await fetch(ADDRESSBOOK_URL, {
+    // Kontakte für jedes Adressbuch abrufen
+    const allContacts: Contact[] = [];
+    
+    for (const addressbook of addressbooks) {
+      const contactsResponse = await fetch(addressbook.url, {
         method: 'PROPFIND',
         headers: {
           'Authorization': `Basic ${authString}`,
@@ -60,133 +83,41 @@ export async function GET() {
         body: `<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
   <D:prop>
-    <D:displayname />
-    <D:resourcetype />
-    <C:supported-address-data />
-  </D:prop>
-</D:propfind>`,
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!addressbooksResponse.ok) {
-        console.error('Fehler beim Abrufen der Adressbücher:', addressbooksResponse.status);
-        return new NextResponse(
-          JSON.stringify({ error: `CardDAV-Fehler: ${addressbooksResponse.status}` }),
-          { 
-            status: addressbooksResponse.status,
-            headers: {
-              'Content-Type': 'application/json',
-              ...headers
-            }
-          }
-        );
-      }
-
-      const addressbooksXml = await addressbooksResponse.text();
-      console.log('Adressbücher XML erhalten, Länge:', addressbooksXml.length);
-
-      // Parse Adressbücher
-      const addressbooks = parseAddressbooksXml(addressbooksXml);
-      console.log('Gefundene Adressbücher:', addressbooks.length);
-
-      // 2. Kontakte für jedes Adressbuch abrufen
-      const allContacts: Contact[] = [];
-      
-      for (const addressbook of addressbooks) {
-        console.log(`Lade Kontakte für Adressbuch: ${addressbook.displayName}`);
-        
-        const contactsController = new AbortController();
-        const contactsTimeoutId = setTimeout(() => contactsController.abort(), 30000);
-        
-        try {
-          // Zurück zur ursprünglich funktionierenden PROPFIND-Methode für Kontakte
-          const contactsResponse = await fetch(addressbook.url, {
-            method: 'PROPFIND',
-            headers: {
-              'Authorization': `Basic ${authString}`,
-              'Content-Type': 'application/xml; charset=utf-8',
-              'Depth': '1'
-            },
-            body: `<?xml version="1.0" encoding="utf-8" ?>
-<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-  <D:prop>
     <D:getetag />
     <C:address-data />
   </D:prop>
-</D:propfind>`,
-            signal: contactsController.signal
-          });
+</D:propfind>`
+      });
 
-          clearTimeout(contactsTimeoutId);
-
-          if (contactsResponse.ok) {
-            const contactsXml = await contactsResponse.text();
-            const contacts = parseContactsXml(contactsXml, addressbook.name, addressbook.displayName);
-            allContacts.push(...contacts);
-            console.log(`${contacts.length} Kontakte aus ${addressbook.displayName} geladen`);
-          } else {
-            console.error(`Fehler beim Laden der Kontakte für ${addressbook.displayName}:`, contactsResponse.status);
-          }
-        } catch (error) {
-          clearTimeout(contactsTimeoutId);
-          console.error(`Timeout/Fehler beim Laden der Kontakte für ${addressbook.displayName}:`, error);
-        }
+      if (contactsResponse.ok) {
+        const contactsXml = await contactsResponse.text();
+        const contacts = parseContactsXml(contactsXml, addressbook.name, addressbook.displayName);
+        allContacts.push(...contacts);
       }
-
-      // Gruppiere Kontakte nach Adressbüchern
-      const addressbooksWithContacts = addressbooks.map(ab => ({
-        ...ab,
-        contacts: allContacts.filter(contact => contact.addressbook === ab.name)
-      }));
-
-      console.log('API: Erfolgreich abgeschlossen');
-      console.log('Gesamtanzahl Kontakte:', allContacts.length);
-      
-      return new NextResponse(
-        JSON.stringify({
-          addressbooks: addressbooksWithContacts,
-          totalContacts: allContacts.length
-        }),
-        { 
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            ...headers
-          }
-        }
-      );
-
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error instanceof Error && error.name === 'AbortError') {
-        console.error('API: Timeout nach 30 Sekunden');
-        return new NextResponse(
-          JSON.stringify({ error: 'Timeout: CardDAV-Server antwortet nicht' }),
-          { 
-            status: 408,
-            headers: {
-              'Content-Type': 'application/json',
-              ...headers
-            }
-          }
-        );
-      }
-      throw error;
     }
 
-  } catch (error) {
-    console.error('API: Unerwarteter Fehler:', error);
+    // Gruppierte Kontakte zurückgeben
+    const addressbooksWithContacts = addressbooks.map(ab => ({
+      ...ab,
+      contacts: allContacts.filter(contact => contact.addressbook === ab.name)
+    }));
+
     return new NextResponse(
-      JSON.stringify({ error: 'Interner Server-Fehler beim Abrufen der CardDAV-Daten' }),
-      { 
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers
-        }
-      }
+      JSON.stringify({
+        addressbooks: addressbooksWithContacts,
+        totalContacts: allContacts.length
+      }),
+      { status: 200, headers }
+    );
+
+  } catch (error) {
+    console.error('API Error:', error);
+    return new NextResponse(
+      JSON.stringify({ 
+        error: 'Interner Server-Fehler',
+        message: error instanceof Error ? error.message : 'Unbekannter Fehler'
+      }),
+      { status: 500, headers }
     );
   }
 }
