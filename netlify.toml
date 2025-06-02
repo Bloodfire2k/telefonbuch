@@ -1,14 +1,33 @@
 [build]
   command = "npm run build"
-  publish = "out"
+  publish = ".next"
 
 [build.environment]
   # Node.js Version festlegen
   NODE_VERSION = "18"
+  NEXT_TELEMETRY_DISABLED = "1"
 
-# Next.js Serverless Functions für Netlify
+# Next.js Plugin für automatische Konfiguration
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Wichtige Redirects für Next.js SPA
+[[redirects]]
+  from = "/_next/*"
+  to = "/_next/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Response = {status = [404]}}
 
 # Umgebungsvariablen müssen über Netlify Dashboard gesetzt werden:
 # CARDDAV_URL, ADDRESSBOOK_URL, CARDDAV_USERNAME, CARDDAV_PASSWORD

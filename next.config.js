@@ -3,13 +3,11 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Für Netlify Deployment
-  trailingSlash: true,
   images: {
     unoptimized: true
   },
-  // Output für statisches Export (falls gewünscht)
-  // output: 'export'
+  output: 'standalone',
+  trailingSlash: true
 }
 
 module.exports = nextConfig 
