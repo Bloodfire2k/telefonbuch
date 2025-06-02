@@ -6,10 +6,12 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  output: 'export',
+  output: 'standalone',
   trailingSlash: true,
   experimental: {
-    serverActions: true
+    serverActions: {
+      bodySizeLimit: '2mb'
+    }
   },
   distDir: '.next'
 }

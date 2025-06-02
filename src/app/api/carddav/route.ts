@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Contact } from '@/lib/carddav';
 
-export const dynamic = 'force-dynamic'
 export const runtime = 'edge'
 
 // Konfiguration aus Umgebungsvariablen - KEINE Fallback-Werte für Sicherheit
