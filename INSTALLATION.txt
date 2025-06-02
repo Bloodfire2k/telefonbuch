@@ -1,0 +1,54 @@
+TELEFONBUCH-APP - INSTALLATION AUF WEBSPACE
+===========================================
+
+📦 Die Datei "telefonbuch-webspace.zip" enthält alle nötigen Dateien für deinen Webspace.
+
+🚀 INSTALLATION:
+
+1. ZIP-Datei auf deinen Webspace hochladen und entpacken
+
+2. Im Terminal/SSH zum Projektordner navigieren
+
+3. Abhängigkeiten installieren:
+   npm install
+
+4. PM2 global installieren (falls noch nicht vorhanden):
+   npm install -g pm2
+
+5. Umgebungsvariablen-Datei erstellen:
+   Neue Datei ".env.local" mit folgendem Inhalt:
+
+   CARDDAV_URL=https://nextcloud.ecenter-jochum.de
+   ADDRESSBOOK_URL=https://nextcloud.ecenter-jochum.de/remote.php/dav/addressbooks/users/Kontakte/
+   CARDDAV_USERNAME=Kontakte
+   CARDDAV_PASSWORD=contacts@edeka
+
+6. Produktionsbuild erstellen (falls nötig):
+   npm run build
+
+7. Anwendung mit PM2 starten:
+   pm2 start npm --name "telefonbuch" -- start
+
+Weitere PM2-Befehle:
+- pm2 status          - Status anzeigen
+- pm2 restart telefonbuch - App neustarten
+- pm2 stop telefonbuch    - App stoppen
+- pm2 logs telefonbuch    - Logs anzeigen
+- pm2 save && pm2 startup - Autostart einrichten
+
+Die App läuft dann dauerhaft auf Port 3000.
+
+📋 ENTHALTENE DATEIEN:
+- src/ - Kompletter Quellcode
+- package.json - Dependencies
+- .next/ - Fertig kompilierter Build
+- README-Webspace.md - Detaillierte Anleitung
+
+🎯 DIE APP KANN:
+- 3.205 Kontakte aus Nextcloud laden
+- Mobile + Desktop Design
+- Suchfunktion
+- Fax-Nummern mit Printer-Icon
+- Öffentlich zugänglich (keine Anmeldung nötig)
+
+Entwickelt mit Next.js 15.3.2 

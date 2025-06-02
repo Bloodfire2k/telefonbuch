@@ -1,0 +1,16 @@
+[build]
+  command = "npm run build"
+  publish = "out"
+
+[build.environment]
+  # Node.js Version festlegen
+  NODE_VERSION = "18"
+
+# Next.js Serverless Functions für Netlify
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Umgebungsvariablen müssen über Netlify Dashboard gesetzt werden:
+# CARDDAV_URL, ADDRESSBOOK_URL, CARDDAV_USERNAME, CARDDAV_PASSWORD
+
+# KEINE hardcodierten Zugangsdaten hier! 
