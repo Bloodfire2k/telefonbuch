@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, Phone, Mail, MapPin, Building, User, Filter, Loader2, Globe, Calendar, FileText, Printer } from 'lucide-react';
 
 interface Contact {
@@ -30,123 +30,104 @@ interface Addressbook {
 
 export default function Home() {
   const [addressbooks, setAddressbooks] = useState<Addressbook[]>([]);
-  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAddressbook, setSelectedAddressbook] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [totalContacts, setTotalContacts] = useState(0);
 
-  // Funktion zum Bereinigen der Adressbuch-Namen
-  const cleanDisplayName = (displayName: string) => {
-    // Firmenreferenzen aus dem displayName entfernen
+  // Memoized Funktionen
+  const cleanDisplayName = useCallback((displayName: string) => {
     return displayName.replace(/\s*\([^)]+\)\s*/g, '').trim();
-  };
+  }, []);
 
-  // Funktion zum Ermitteln des passenden Icons für Telefonnummern
-  const getPhoneIcon = (type: string) => {
+  const getPhoneIcon = useCallback((type: string) => {
     const lowerType = type.toLowerCase();
     if (lowerType.includes('fax')) {
       return <Printer className="h-3 md:h-3.5 w-3 md:w-3.5 mr-2 text-purple-500 flex-shrink-0 mt-0.5" />;
     }
     return <Phone className="h-3 md:h-3.5 w-3 md:w-3.5 mr-2 text-green-500 flex-shrink-0 mt-0.5" />;
-  };
-
-  // Funktion zum Klicken auf Adressbuch-Karten
-  const handleAddressbookClick = (addressbookName: string) => {
-    setSelectedAddressbook(addressbookName);
-  };
-
-  useEffect(() => {
-    loadContacts();
   }, []);
 
-  useEffect(() => {
-    if (!loading) {
-      let allContacts: Contact[] = [];
-    
-      // Sammle nur Kontakte aus den gewünschten Adressbüchern
-      const relevantAddressbooks = addressbooks.filter(ab => 
-        ab.displayName.includes('Edeka') || 
-        ab.displayName.includes('Handwerker') || 
-        ab.displayName.includes('Vertreter')
-      );
-      
-      relevantAddressbooks.forEach(ab => {
-        allContacts.push(...ab.contacts);
-      });
+  // Memoized Berechnungen
+  const relevantAddressbooks = useMemo(() => {
+    return addressbooks.filter(ab => 
+      ab.displayName.includes('Edeka') || 
+      ab.displayName.includes('Handwerker') || 
+      ab.displayName.includes('Vertreter')
+    );
+  }, [addressbooks]);
 
-      // Filter nach Adressbuch
-      if (selectedAddressbook !== 'all') {
-        allContacts = allContacts.filter(contact => contact.addressbook === selectedAddressbook);
-      }
+  const filteredContacts = useMemo(() => {
+    if (!relevantAddressbooks.length) return [];
 
-      // Filter nach Suchbegriff
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase();
-        allContacts = allContacts.filter(contact =>
-          contact.fullName.toLowerCase().includes(term) ||
-          (contact.organization && contact.organization.toLowerCase().includes(term)) ||
-          (contact.phone && contact.phone.toLowerCase().includes(term)) ||
-          (contact.email && contact.email.toLowerCase().includes(term)) ||
-          (contact.note && contact.note.toLowerCase().includes(term))
-        );
-      }
+    let contacts = relevantAddressbooks.flatMap(ab => ab.contacts);
 
-      setFilteredContacts(allContacts);
+    if (selectedAddressbook !== 'all') {
+      contacts = contacts.filter(contact => contact.addressbook === selectedAddressbook);
     }
-  }, [searchTerm, selectedAddressbook, addressbooks, loading]);
 
-  const loadContacts = async () => {
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      contacts = contacts.filter(contact =>
+        contact.fullName.toLowerCase().includes(term) ||
+        (contact.organization && contact.organization.toLowerCase().includes(term)) ||
+        (contact.phone && contact.phone.toLowerCase().includes(term)) ||
+        (contact.email && contact.email.toLowerCase().includes(term)) ||
+        (contact.note && contact.note.toLowerCase().includes(term))
+      );
+    }
+
+    return contacts;
+  }, [relevantAddressbooks, selectedAddressbook, searchTerm]);
+
+  const totalContacts = useMemo(() => {
+    return relevantAddressbooks.reduce((sum, ab) => sum + ab.contacts.length, 0);
+  }, [relevantAddressbooks]);
+
+  const addressbookStats = useMemo(() => {
+    return relevantAddressbooks.map(ab => ({
+      ...ab,
+      contactCount: ab.contacts.length
+    }));
+  }, [relevantAddressbooks]);
+
+  // Event Handler
+  const handleAddressbookClick = useCallback((addressbookName: string) => {
+    setSelectedAddressbook(addressbookName);
+  }, []);
+
+  const handleSearch = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  }, []);
+
+  // Daten laden
+  const loadContacts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
       const response = await fetch('/api/carddav');
-      
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
-      
       if (data.error) {
         throw new Error(data.error);
       }
       
       setAddressbooks(data.addressbooks || []);
-      setTotalContacts(data.totalContacts || 0);
-      
     } catch (err) {
       console.error('Fehler beim Laden der Kontakte:', err);
       setError(err instanceof Error ? err.message : 'Unbekannter Fehler');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const getAddressbookStats = () => {
-    // Nur die gewünschten Adressbücher anzeigen
-    const relevantAddressbooks = addressbooks.filter(ab => 
-      ab.displayName.includes('Edeka') || 
-      ab.displayName.includes('Handwerker') || 
-      ab.displayName.includes('Vertreter')
-    );
-    
-    return relevantAddressbooks.map(ab => ({
-      ...ab,
-      contactCount: ab.contacts.length
-    }));
-  };
-
-  const getFilteredAddressbooks = () => {
-    // Nur die gewünschten Adressbücher für den Filter anzeigen
-    return addressbooks.filter(ab => 
-      ab.displayName.includes('Edeka') || 
-      ab.displayName.includes('Handwerker') || 
-      ab.displayName.includes('Vertreter')
-    );
-  };
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
 
   if (loading) {
     return (
@@ -215,7 +196,7 @@ export default function Home() {
         <div className="mb-8">
           {/* Desktop Version - Große Karten */}
           <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {getAddressbookStats().map((ab) => (
+            {addressbookStats.map((ab) => (
               <div 
                 key={ab.name} 
                 className={`bg-white rounded-lg shadow-sm p-6 border-2 cursor-pointer transition-all duration-200 transform hover:scale-102 ${
@@ -250,7 +231,7 @@ export default function Home() {
               Adressbücher
             </h3>
             <div className="space-y-3">
-              {getAddressbookStats().map((ab) => (
+              {addressbookStats.map((ab) => (
                 <div 
                   key={ab.name} 
                   className={`flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0 cursor-pointer transition-all duration-200 rounded-lg px-3 ${
@@ -290,7 +271,7 @@ export default function Home() {
                 type="text"
                 placeholder={selectedAddressbook === 'all' ? 'Kontakte durchsuchen...' : `${cleanDisplayName(addressbooks.find(ab => ab.name === selectedAddressbook)?.displayName || '')} durchsuchen...`}
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearch}
                 className="w-full pl-10 pr-4 py-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-600 text-base md:text-sm bg-white"
                 style={{ fontSize: '16px' }}
               />
