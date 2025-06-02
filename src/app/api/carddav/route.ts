@@ -12,18 +12,30 @@ const PASSWORD = process.env.CARDDAV_PASSWORD;
 export async function GET() {
   // Debug: Prüfe welche Umgebungsvariablen tatsächlich geladen werden
   console.log('Debug Umgebungsvariablen:');
-  console.log('CARDDAV_URL:', process.env.CARDDAV_URL);
-  console.log('ADDRESSBOOK_URL:', process.env.ADDRESSBOOK_URL);
-  console.log('CARDDAV_USERNAME:', process.env.CARDDAV_USERNAME);
-  console.log('CARDDAV_PASSWORD:', process.env.CARDDAV_PASSWORD ? 'GESETZT' : 'NICHT GESETZT');
+  console.log('CARDDAV_URL:', CARDDAV_URL);
+  console.log('ADDRESSBOOK_URL:', ADDRESSBOOK_URL);
+  console.log('CARDDAV_USERNAME:', USERNAME);
+  console.log('CARDDAV_PASSWORD:', PASSWORD ? 'GESETZT' : 'NICHT GESETZT');
+  
+  // CORS-Header hinzufügen
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': '*'
+  };
   
   // Prüfe ob alle notwendigen Umgebungsvariablen gesetzt sind
   if (!CARDDAV_URL || !ADDRESSBOOK_URL || !USERNAME || !PASSWORD) {
     console.error('FEHLER: Nicht alle CardDAV-Umgebungsvariablen sind gesetzt!');
-    console.error('Benötigt: CARDDAV_URL, ADDRESSBOOK_URL, CARDDAV_USERNAME, CARDDAV_PASSWORD');
-    return NextResponse.json(
-      { error: 'Server-Konfiguration unvollständig. Umgebungsvariablen fehlen.' },
-      { status: 500 }
+    return new NextResponse(
+      JSON.stringify({ error: 'Server-Konfiguration unvollständig. Umgebungsvariablen fehlen.' }),
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        }
+      }
     );
   }
 
@@ -60,9 +72,15 @@ export async function GET() {
 
       if (!addressbooksResponse.ok) {
         console.error('Fehler beim Abrufen der Adressbücher:', addressbooksResponse.status);
-        return NextResponse.json(
-          { error: `CardDAV-Fehler: ${addressbooksResponse.status}` },
-          { status: addressbooksResponse.status }
+        return new NextResponse(
+          JSON.stringify({ error: `CardDAV-Fehler: ${addressbooksResponse.status}` }),
+          { 
+            status: addressbooksResponse.status,
+            headers: {
+              'Content-Type': 'application/json',
+              ...headers
+            }
+          }
         );
       }
 
@@ -126,18 +144,33 @@ export async function GET() {
       console.log('API: Erfolgreich abgeschlossen');
       console.log('Gesamtanzahl Kontakte:', allContacts.length);
       
-      return NextResponse.json({
-        addressbooks: addressbooksWithContacts,
-        totalContacts: allContacts.length
-      });
+      return new NextResponse(
+        JSON.stringify({
+          addressbooks: addressbooksWithContacts,
+          totalContacts: allContacts.length
+        }),
+        { 
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            ...headers
+          }
+        }
+      );
 
     } catch (error) {
       clearTimeout(timeoutId);
       if (error instanceof Error && error.name === 'AbortError') {
         console.error('API: Timeout nach 30 Sekunden');
-        return NextResponse.json(
-          { error: 'Timeout: CardDAV-Server antwortet nicht' },
-          { status: 408 }
+        return new NextResponse(
+          JSON.stringify({ error: 'Timeout: CardDAV-Server antwortet nicht' }),
+          { 
+            status: 408,
+            headers: {
+              'Content-Type': 'application/json',
+              ...headers
+            }
+          }
         );
       }
       throw error;
@@ -145,9 +178,15 @@ export async function GET() {
 
   } catch (error) {
     console.error('API: Unerwarteter Fehler:', error);
-    return NextResponse.json(
-      { error: 'Interner Server-Fehler beim Abrufen der CardDAV-Daten' },
-      { status: 500 }
+    return new NextResponse(
+      JSON.stringify({ error: 'Interner Server-Fehler beim Abrufen der CardDAV-Daten' }),
+      { 
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers
+        }
+      }
     );
   }
 }
