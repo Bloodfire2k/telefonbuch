@@ -7,7 +7,11 @@ const nextConfig = {
     unoptimized: true
   },
   output: 'standalone',
-  trailingSlash: true
+  trailingSlash: true,
+  experimental: {
+    serverActions: true,
+    serverComponentsExternalPackages: ['sharp']
+  }
 }
 
 module.exports = nextConfig 

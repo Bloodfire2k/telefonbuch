@@ -4,8 +4,9 @@
 
 [build.environment]
   # Node.js Version festlegen
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
+  NEXT_SHARP_PATH = "./node_modules/sharp"
 
 # Next.js Plugin für automatische Konfiguration
 [[plugins]]
@@ -19,9 +20,19 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "/api/:splat"
+  to = "/.netlify/functions/server/api/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/_next/static/*"
+  to = "/_next/static/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/_next/data/*"
+  to = "/_next/data/:splat"
+  status = 200
 
 [[redirects]]
   from = "/*"
@@ -32,4 +43,9 @@
 # Umgebungsvariablen müssen über Netlify Dashboard gesetzt werden:
 # CARDDAV_URL, ADDRESSBOOK_URL, CARDDAV_USERNAME, CARDDAV_PASSWORD
 
-# KEINE hardcodierten Zugangsdaten hier! 
+# KEINE hardcodierten Zugangsdaten hier!
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@node-rs/bcrypt", "sharp"]
+  included_files = ["node_modules/sharp/**/*"] 
