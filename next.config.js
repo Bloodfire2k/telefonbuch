@@ -6,8 +6,6 @@ const nextConfig = {
   images: {
     unoptimized: true
   },
-  output: 'export',
-  distDir: 'out',
   async headers() {
     return [
       {

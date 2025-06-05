@@ -38,42 +38,7 @@ export async function GET(request: NextRequest) {
     const authString = Buffer.from(`${USERNAME}:${PASSWORD}`).toString('base64');
     
     // Adressbücher abrufen
-    const addressbooksResponse = await fetch(ADDRESSBOOK_URL, {
-      method: 'PROPFIND',
-      headers: {
-        'Authorization': `Basic ${authString}`,
-        'Content-Type': 'application/xml; charset=utf-8',
-        'Depth': '1'
-      },
-      body: `<?xml version="1.0" encoding="utf-8" ?>
-<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-  <D:prop>
-    <D:displayname />
-    <D:resourcetype />
-    <C:supported-address-data />
-  </D:prop>
-</D:propfind>`
-    });
-
-    if (!addressbooksResponse.ok) {
-      return new NextResponse(
-        JSON.stringify({ 
-          error: 'CardDAV-Server nicht erreichbar',
-          status: addressbooksResponse.status,
-          statusText: addressbooksResponse.statusText
-        }),
-        { status: addressbooksResponse.status, headers }
-      );
-    }
-
-    const addressbooksXml = await addressbooksResponse.text();
-    const addressbooks = parseAddressbooksXml(addressbooksXml);
-    
-    // Kontakte für jedes Adressbuch abrufen
-    const allContacts: Contact[] = [];
-    
-    for (const addressbook of addressbooks) {
-      const contactsResponse = await fetch(addressbook.url, {
+      const addressbooksResponse = await fetch(ADDRESSBOOK_URL, {
         method: 'PROPFIND',
         headers: {
           'Authorization': `Basic ${authString}`,
@@ -83,24 +48,59 @@ export async function GET(request: NextRequest) {
         body: `<?xml version="1.0" encoding="utf-8" ?>
 <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
   <D:prop>
-    <D:getetag />
-    <C:address-data />
+    <D:displayname />
+    <D:resourcetype />
+    <C:supported-address-data />
   </D:prop>
 </D:propfind>`
       });
 
-      if (contactsResponse.ok) {
-        const contactsXml = await contactsResponse.text();
-        const contacts = parseContactsXml(contactsXml, addressbook.name, addressbook.displayName);
-        allContacts.push(...contacts);
+      if (!addressbooksResponse.ok) {
+      return new NextResponse(
+        JSON.stringify({ 
+          error: 'CardDAV-Server nicht erreichbar',
+          status: addressbooksResponse.status,
+          statusText: addressbooksResponse.statusText
+        }),
+        { status: addressbooksResponse.status, headers }
+        );
       }
-    }
+
+      const addressbooksXml = await addressbooksResponse.text();
+      const addressbooks = parseAddressbooksXml(addressbooksXml);
+
+    // Kontakte für jedes Adressbuch abrufen
+      const allContacts: Contact[] = [];
+      
+      for (const addressbook of addressbooks) {
+          const contactsResponse = await fetch(addressbook.url, {
+            method: 'PROPFIND',
+            headers: {
+              'Authorization': `Basic ${authString}`,
+              'Content-Type': 'application/xml; charset=utf-8',
+              'Depth': '1'
+            },
+            body: `<?xml version="1.0" encoding="utf-8" ?>
+<D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+  <D:prop>
+    <D:getetag />
+    <C:address-data />
+  </D:prop>
+</D:propfind>`
+          });
+
+          if (contactsResponse.ok) {
+            const contactsXml = await contactsResponse.text();
+            const contacts = parseContactsXml(contactsXml, addressbook.name, addressbook.displayName);
+            allContacts.push(...contacts);
+        }
+      }
 
     // Gruppierte Kontakte zurückgeben
-    const addressbooksWithContacts = addressbooks.map(ab => ({
-      ...ab,
-      contacts: allContacts.filter(contact => contact.addressbook === ab.name)
-    }));
+      const addressbooksWithContacts = addressbooks.map(ab => ({
+        ...ab,
+        contacts: allContacts.filter(contact => contact.addressbook === ab.name)
+      }));
 
     return new NextResponse(
       JSON.stringify({
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
         totalContacts: allContacts.length
       }),
       { status: 200, headers }
-    );
+        );
 
   } catch (error) {
     console.error('API Error:', error);
